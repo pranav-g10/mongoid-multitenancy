@@ -2,7 +2,11 @@ require "mongoid"
 require "mongoid/multitenancy/document"
 require "mongoid/multitenancy/version"
 require "mongoid/validators/tenant_validator"
-require "bson/object_id"
+if Mongoid::VERSION.start_with? '4'
+  require "bson/object_id"
+else
+  require "moped/bson/object_id"
+end
 
 module Mongoid
   module Multitenancy
@@ -33,7 +37,7 @@ module Mongoid
         Thread.current[:current_tenant] = primary_tenant
         scoping_tenants = []
         secondary_tenants.map do |t|
-          if BSON::ObjectId.legal?(t)
+          if is_oid?(t)
             scoping_tenants << t
           else
             scoping_tenants << t.id
@@ -68,6 +72,17 @@ module Mongoid
 
         self.set_tenants old_primary, *old_secondary
       end
+
+      private
+
+      def is_oid?(id)
+        if mongoid4?
+            BSON::ObjectId.legal? id
+        else
+            Moped::BSON::ObjectId.legal? id
+        end
+      end
+
     end
   end
 end
