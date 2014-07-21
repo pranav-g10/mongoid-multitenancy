@@ -171,35 +171,29 @@ scoped to a `Client`. We might instead scope comments directly to the article
 to which they belong. But then how would we set our `current_tenant` at the controller
 level. Here again we can use the `set_tenants` call.
 
-`set_tenants` uses the first parameter passed to it to determine the class of the tenants
-being set, and uses this information to create a `tenant_map` of sorts:
+To simultaneously set tenants for Client as well as article we would:
 
 ```ruby
+# set a single tenant for Client (no scoping tenants)
+# notice the reset call to ensure that tenant_map is build from scratch
+Mongoid::Multitenancy.reset.set_tenants Client.first
+
+# for Articles: set primary tenant to the first Article and scope to all
+# notice the lack of a reset call here
+Mongoid::Multitenancy.set_tenants Artice.first, Article.all
+
+# at the end of the above calls, we would get a tenant_map like the following:
 {
-    "Klass1" => {
-        current_tenant: an_instance_of_klass1,
-        scoping_tenants: array_of_ids_of_instances_of_klass1
+    "Client" => {
+        current_tenant: instance_of_Client,
+        scoping_tenants: array_of_Client_ids
     },
-    "Klass2" => {
-        current_tenant: an_instance_of_klass2,
-        scoping_tenants: array_of_ids_of_instances_of_klass2
+    "Article" => {
+        current_tenant: instance_of_Article,
+        scoping_tenants: array_of_Article_ids
     },
     ...
 }
-```
-    
-When setting the tenants first time for a fresh request
-    
-```ruby
-# notice the reset call
-Mongoid::Multitenancy.reset.set_tenants Company.first, Company.all
-```
-    
-More tenants of a different class can thereafter be set as:
-    
-```ruby
-# notice the lack of a reset call here
-Mongoid::Multitenancy.set_tenants Plant.first, Plant.all
 ```
 
 To unset tenants for a single class
@@ -207,7 +201,8 @@ To unset tenants for a single class
 ```ruby
 # pass the class as the first parameter
 # and no other parameters
-Mongoid::Multitenancy.set_tenants Client
+Mongoid::Multitenancy.set_tenants Article
+```
 
 To set tenants for Scoping ONLY, and none for Creation/Validation
 
