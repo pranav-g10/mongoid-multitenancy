@@ -25,8 +25,21 @@ module Mongoid
       end
 
       # Returns the current tenant
-      def current_tenant
-        tenant_map.first[1][:current_tenant]
+      def current_tenant(klass=nil)
+        if klass
+          tenant_map[klass.to_s][:current_tenant]
+        else
+          tenant_map.first[1][:current_tenant]
+        end
+      end
+
+      # Returns the scoping tenant for a tenant class
+      def scoping_tenants(klass=nil)
+        if klass
+          tenant_map[klass.to_s][:scoping_tenants]
+        else
+          tenant_map.first[1][:scoping_tenants]
+        end
       end
 
       # Returns the complete hash of tenants
@@ -56,16 +69,6 @@ module Mongoid
       def reset
         tenant_map = {}
         self
-      end
-
-      # Returns the current tenant for a tenant class
-      def current_tenant[](klass)
-        tenant_map[klass.to_s][:current_tenant]
-      end
-
-      # Returns the scoping tenant for a tenant class
-      def scoping_tenants[](klass)
-        tenant_map[klass.to_s][:scoping_tenants]
       end
 
       # set primary and secondary tentants in a Thread aware container

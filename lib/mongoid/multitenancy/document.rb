@@ -26,15 +26,17 @@ module Mongoid
 
           # Set the current_tenant on newly created objects
           before_validation lambda { |m|
-            if Multitenancy.current_tenant[tenant_class] and !tenant_options[:optional] and m.send(association.to_sym).nil?
-              m.send "#{association}=".to_sym, Multitenancy.current_tenant[tenant_class]
+            if Multitenancy.current_tenant(tenant_class) and
+              !tenant_options[:optional] and
+              m.send(association.to_sym).nil?
+              m.send "#{association}=".to_sym, Multitenancy.current_tenant(tenant_class)
             end
             true
           }
 
           # Set the default_scope to scope to current tenant
           default_scope lambda {
-            all_tenants = Multitenancy.scoping_tenants[tenant_class]
+            all_tenants = Multitenancy.scoping_tenants(tenant_class)
             criteria = if all_tenants
                          if tenant_options[:optional]
                            where({ tenant_field.to_sym.in => (all_tenants + [nil]) })
