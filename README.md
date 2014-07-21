@@ -115,7 +115,8 @@ When setting an optional tenant, for example to allow shared instances between a
 Article.all # => all articles where client_id.in [50ca04b86c82bfc125000025, nil]
 ```
 
-**Scoping searches to multiple tenants**
+Multi Scoping (Scoping searches to multiple tenants)
+-------------------
 
 Sometimes it might be needed to read documents belonging to different tenants in a single call.
 For example consider adding an `Agent` model to the above use-case of `Client` and `Article`.
@@ -160,6 +161,62 @@ Article.all # => all articles where client_id in [50ca04b86c82bfc125000025, 50ca
  # New objects are scoped to the current tenant
 Article.new(:title => 'New blog') # => <#Article _id: nil, title: 'New blog', :client_id: 50ca04b86c82bfc125000025>
 ```
+
+Multi Classing (Tenants from different Models existing simultaneously)
+-------------------
+
+Suppose in our above example of `Client` and `Article` we decide to add
+`Comments` on an `Article`. Now it doesn't make sense to have the comments
+scoped to a `Client`. We might instead scope comments directly to the article
+to which they belong. But then how would we set our `current_tenant` at the controller
+level. Here again we can use the `set_tenants` call.
+
+`set_tenants` uses the first parameter passed to it to determine the class of the tenants
+being set, and uses this information to create a `tenant_map` of sorts:
+
+```ruby
+{
+    "Klass1" => {
+        current_tenant: an_instance_of_klass1,
+        scoping_tenants: array_of_ids_of_instances_of_klass1
+    },
+    "Klass2" => {
+        current_tenant: an_instance_of_klass2,
+        scoping_tenants: array_of_ids_of_instances_of_klass2
+    },
+    ...
+}
+```
+    
+When setting the tenants first time for a fresh request
+    
+```ruby
+# notice the reset call
+Mongoid::Multitenancy.reset.set_tenants Company.first, Company.all
+```
+    
+More tenants of a different class can thereafter be set as:
+    
+```ruby
+# notice the lack of a reset call here
+Mongoid::Multitenancy.set_tenants Plant.first, Plant.all
+```
+
+To unset tenants for a single class
+
+```ruby
+# pass the class as the first parameter
+# and no other parameters
+Mongoid::Multitenancy.set_tenants Client
+
+To set tenants for Scoping ONLY, and none for Creation/Validation
+
+```ruby
+# pass the class as the first parameter
+# and the list as the remaining parameter
+Mongoid::Multitenancy.set_tenants Client, Client.all
+```
+
 
 Rails
 -------------------
