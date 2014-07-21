@@ -21,12 +21,51 @@ module Mongoid
       # This sets a single tenant for primary (creation)
       # as well as scoping (search/delete) purposes
       def current_tenant=(tenant)
-        self.set_tenants tenant
+        self.reset.set_tenants tenant
       end
 
       # Returns the current tenant
       def current_tenant
-        Thread.current[:current_tenant]
+        tenant_map.first[1][:current_tenant]
+      end
+
+      # Returns the complete hash of tenants
+      # {
+      #   "Klass1" => {
+      #     current_tenant: instance,
+      #     scoping_tenants: [id1, id2, id3, ...]
+      #   },
+      #   "Klass2" => {
+      #     current_tenant: instance,
+      #     scoping_tenants: [id1, id2, id3, ...]
+      #   },
+      #   ...
+      # }
+      def tenant_map
+        Thread.current[:mongoid_multitenancy]
+      end
+
+      # set current tenant_map 
+      def tenant_map=(hash)
+        Thread.current[:mongoid_multitenancy] = hash
+      end
+
+      # set current tenant_map to empty i.e. {}
+      # returns self to allow chaining
+      # as Mongoid::Multitenancy.reset.set_tenants .....
+      def reset
+        tenant_map = {}
+        self
+      end
+
+      # Returns the current tenant for a tenant class
+      def current_tenant[](klass)
+        tenant_map[klass.to_s][:current_tenant]
+      end
+
+      # Returns the scoping tenant for a tenant class
+      def scoping_tenants[](klass)
+        tenant_map[klass.to_s][:scoping_tenants]
       end
 
       # set primary and secondary tentants in a Thread aware container
@@ -34,28 +73,39 @@ module Mongoid
       # The combined list of Secondary tenants + Primary tenant is used
       # for the scoping purposes (search/delete)
       def set_tenants(primary_tenant, *secondary_tenants)
-        Thread.current[:current_tenant] = primary_tenant
+        klass = nil
+        real_primary_tenant = nil
+
+        # set klass based on first argument
+        if primary_tenant.is_a?(Mongoid::Document)
+          klass = primary_tenant.class.to_s
+          real_primary_tenant = primary_tenant
+        elsif primary_tenant.kind_of?(Class)
+          klass = primary_tenant.to_s
+        else
+          raise ArgumentError.new("First argument to Mongoid::Multitenancy.set_tenants must be a Document instance OR a Document class")
+        end
+
+        tenant_map[klass] = {
+          current_tenant: real_primary_tenant,
+          scoping_tenants: nil
+        }
         scoping_tenants = []
-        secondary_tenants.map do |t|
-          if is_oid?(t)
-            scoping_tenants << t
+        secondary_tenants.each do |t|
+          if t.class == Mongoid::Criteria
+            t.each do |o|
+              scoping_tenants << get_oid(o)
+            end
           else
-            scoping_tenants << t.id
+            scoping_tenants << get_oid(t)
           end
         end
 
-        if primary_tenant && !scoping_tenants.include?(primary_tenant.id)
-          Thread.current[:scoping_tenants] = (scoping_tenants << primary_tenant.id)
+        if real_primary_tenant && !scoping_tenants.include?(real_primary_tenant.id)
+          tenant_map[klass][:scoping_tenants] = (scoping_tenants << real_primary_tenant.id)
         elsif !scoping_tenants.empty?
-          Thread.current[:scoping_tenants] = scoping_tenants
-        else
-          Thread.current[:scoping_tenants] = nil
+          tenant_map[klass][:scoping_tenants] = scoping_tenants
         end
-      end
-
-      # Returns the array of tenant-ids to be used for scoping
-      def scoping_tenants
-        Thread.current[:scoping_tenants]
       end
 
       # Affects a tenant temporary for a block execution
@@ -64,13 +114,14 @@ module Mongoid
           raise ArgumentError, "block required"
         end
 
-        old_primary = self.current_tenant
-        old_secondary = self.scoping_tenants
-        self.set_tenants tenant
+        old_tenant_map = self.tenant_map
 
+        # reset current tenant_map and set new tenant
+        self.reset
+        self.set_tenants if tenant
         block.call
 
-        self.set_tenants old_primary, *old_secondary
+        self.tenant_map = old_tenant_map
       end
 
       private
@@ -80,6 +131,14 @@ module Mongoid
             BSON::ObjectId.legal? id
         else
             Moped::BSON::ObjectId.legal? id
+        end
+      end
+
+      def get_oid(obj)
+        if is_oid?(obj)
+          obj
+        else
+          obj.id
         end
       end
 
