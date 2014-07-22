@@ -20,6 +20,7 @@ module Mongoid
           tenant_field = reflect_on_association(association).foreign_key
           tenant_class = reflect_on_association(association).class_name
           self.tenant_field = tenant_field
+          self.tenant_class = tenant_class
 
           # Validates the tenant field
           validates tenant_field, tenant: tenant_options

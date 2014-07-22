@@ -10,8 +10,8 @@ class TenantValidator < ActiveModel::EachValidator
 
     # Ownership check
     if value and
-      Mongoid::Multitenancy.current_tenant(object.tenant_class) and
-      value != Mongoid::Multitenancy.current_tenant(object.tenant_class).id
+      Mongoid::Multitenancy.current_tenant(object.class.tenant_class) and
+      value != Mongoid::Multitenancy.current_tenant(object.class.tenant_class).id
       object.errors.add(attribute, "not authorized")
     end
 
