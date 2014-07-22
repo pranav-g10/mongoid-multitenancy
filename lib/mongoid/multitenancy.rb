@@ -55,7 +55,7 @@ module Mongoid
       #   ...
       # }
       def tenant_map
-        Thread.current[:mongoid_multitenancy]
+        Thread.current[:mongoid_multitenancy] ||= {}
       end
 
       # set current tenant_map 
