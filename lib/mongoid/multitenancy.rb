@@ -26,7 +26,11 @@ module Mongoid
 
       # Returns the current tenant
       def current_tenant(klass=nil)
-        if klass
+        if tenant_map.empty?
+          return nil
+        end
+
+        if klass && tenant_map[klass.to_s]
           tenant_map[klass.to_s][:current_tenant]
         else
           tenant_map.first[1][:current_tenant]
@@ -35,7 +39,11 @@ module Mongoid
 
       # Returns the scoping tenant for a tenant class
       def scoping_tenants(klass=nil)
-        if klass
+        if tenant_map.empty?
+          return nil
+        end
+
+        if klass && tenant_map[klass.to_s]
           tenant_map[klass.to_s][:scoping_tenants]
         else
           tenant_map.first[1][:scoping_tenants]
